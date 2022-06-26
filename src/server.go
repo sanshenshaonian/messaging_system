@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"sync"
 )
@@ -51,15 +52,30 @@ func (this *Server) BroadCast(user *User, msg string) {
 func (this *Server) Hnadler(connfd net.Conn) {
 	fmt.Println("和客户端链接已经建立， 描述符号为connfd")
 
-	var user *User = NewUser(connfd)
+	var user *User = NewUser(connfd, this)
 
-	//save user in map
-	this.mapLock.Lock()
-	this.OnlineMap[user.Addr] = user
-	this.mapLock.Unlock()
+	user.Online()
 
-	//send msg to server.chan then server will broadcase to every user
-	this.BroadCast(user, "上线了！！！！！！")
+	go func() {
+		buf := make([]byte, 4096)
+
+		for {
+			n, err := connfd.Read(buf)
+
+			if n == 0 {
+				user.Offline()
+				return
+			}
+
+			if err != nil && err != io.EOF {
+				fmt.Println("非法操作")
+				return
+			}
+
+			msg := string(buf[:n-1])
+			user.DoMessage(msg)
+		}
+	}()
 
 	//block
 	select {}
