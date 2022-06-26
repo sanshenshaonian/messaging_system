@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net"
 	"strings"
 )
@@ -90,6 +91,24 @@ func (this *User) DoMessage(msg string) {
 
 			this.SendMessage("已经更新用户名为 ：" + newname)
 		}
+
+	} else if len(msg) > 4 && msg[:3] == "to|" {
+		remotename := strings.Split(msg, "|")[1]
+		if remotename == "" {
+			fmt.Println("消息格式错误！！！！！")
+		}
+
+		remoteuser, ok := this.server.OnlineMap[remotename]
+		if !ok {
+			fmt.Println("该用户不存在")
+		}
+
+		content := strings.Split(msg, "|")[2]
+		if content == "" {
+			fmt.Println("消息为空，请重新发送")
+		}
+
+		remoteuser.SendMessage(this.Name + "对您说:" + content)
 
 	} else {
 		this.server.BroadCast(this, msg)

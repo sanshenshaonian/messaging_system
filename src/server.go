@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"time"
 )
 
 type Server struct {
@@ -56,6 +57,9 @@ func (this *Server) Hnadler(connfd net.Conn) {
 
 	user.Online()
 
+	//channel to record is send message is 10second
+	isLive := make(chan bool)
+
 	go func() {
 		buf := make([]byte, 4096)
 
@@ -74,11 +78,29 @@ func (this *Server) Hnadler(connfd net.Conn) {
 
 			msg := string(buf[:n-1])
 			user.DoMessage(msg)
+
+			isLive <- true
 		}
 	}()
 
 	//block
-	select {}
+	for {
+		select {
+		case <-isLive:
+			//循序执行 下一个case中的语句从而更新定时器 ps:英文太难写了
+		case <-time.After(200 * time.Second):
+			user.SendMessage("你被强制踢出!!!!")
+
+			close(user.C)
+			connfd.Close()
+			user.server.mapLock.Lock()
+			delete(user.server.OnlineMap, user.Name)
+			user.server.mapLock.Unlock()
+
+			return
+		}
+	}
+
 }
 
 func (this *Server) Start() {
